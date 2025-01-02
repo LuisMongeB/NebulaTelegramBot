@@ -8,53 +8,39 @@ import os
 
 import azure.functions as func
 from additional_functions import bp
+from commands.command_registry import CommandRegistry
+from commands.start_command import StartCommand
+from message_processing.audio_processor import process_audio_message
 from services.telegram_service import TelegramService
+
+token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+
+if not token:
+    logging.error(f"Telegram Token not found in the environment variables.")
+    raise Exception("Telegram Token not found in the environment variables.")
+
+telegram_service = TelegramService(token)
+
+command_registry = CommandRegistry()
+start_command = StartCommand(telegram_service)
+
+command_registry.register(
+    "start",
+    start_command.execute,
+    "Start the bot",
+    "Initialize the bot and see welcome message",
+)
+
 
 app = func.FunctionApp()
 
 app.register_blueprint(bp)
 
 
-def process_audio_message(message):
-    # Extract audio file details from the message
-    audio_file_id = message.get("audio", {}).get("file_id") or message.get(
-        "voice", {}
-    ).get("file_id")
-    chat_id = message.get("chat", {}).get("id", "No chat id")
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d%H%M%S")
-
-    # Here you can include logic to download the audio file using Telegram Bot API
-    # For example, use Telegram Bot API to get the file path and then download the file
-
-    # Placeholder: Log the extraction details
-    logging.info(
-        f"Processing audio message from chat: {chat_id} with file_id: {audio_file_id}"
-    )
-
-    # Call function to save audio details or file to Azure Blob Storage
-    save_audio_to_blob(chat_id, audio_file_id, timestamp)
-
-
-def save_audio_to_blob(chat_id, audio_file_id, timestamp):
-    # Placeholder: Include logic to save the audio file or its metadata to Azure Blob Storage
-    logging.info(
-        f"Saving audio message to blob storage for chat: {chat_id} with file_id: {audio_file_id} at {timestamp}"
-    )
-
-
 @app.function_name("TelegramBotFunction")
 @app.route(route="nebula", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
 def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Python HTTP trigger function received a request from Telegram Bot.")
-
-    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    if not token:
-        logging.error(f"Telegram Token not found in the environment variables.")
-        return func.HttpResponse(
-            "Telegram Token not found in the environment variables.", status_code=500
-        )
-
-    telegram_service = TelegramService(token)
 
     logging.info(f"Instantiated the TelegramService class.")
     try:
@@ -63,6 +49,19 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
 
         # Check the type of message
         message = req_body.get("message", {})
+
+        if "entities" in message and message["entities"][0]["type"] == "bot_command":
+            command_text = message["text"]
+            chat_id = message["chat"]["id"]
+            user_name = message["from"].get("username", "")
+
+            if command_text == "/start" and user_name:
+                logging.info(f"Received /start command from {user_name}")
+                asyncio.run(start_command.execute_with_name(chat_id, user_name))
+                return func.HttpResponse(
+                    f"Received /start command from {user_name}", status_code=200
+                )
+
         if "text" in message:
             text = message["text"]
             logging.info(f"Received text message: {text}")
@@ -91,29 +90,16 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
-@app.function_name("SecondHTTPFunction")
-@app.route(route="newroute")
-def test_function(req: func.HttpRequest) -> func.HttpResponse:
-    logging.info("Starting the second HTTP Function request.")
-
-    name = req.params.get("name")
-    if name:
-        message = f"Hello, {name}, so glad this Function worked!!"
-    else:
-        message = "Hello, so glad this Function worked!!"
-    return func.HttpResponse(message, status_code=200)
-
-
-@app.function_name(name="MyFirstBlobFunction")
+@app.function_name(name="ProcessM4AFile")
 @app.blob_trigger(
-    arg_name="myblob", path="filecontainer/{name}.csv", connection="AdditionalStorage"
+    arg_name="myblob", path="filecontainer/{name}.m4a", connection="AdditionalStorage"
 )
 @app.blob_output(
     arg_name="outputblob",
-    path="processedcontainer/{name}_processed.csv",  # Use a placeholder for dynamic blob name
+    path="processedcontainer/{name}_processed.m4a",  # Use a placeholder for dynamic blob name
     connection="AdditionalStorage",
 )
-def process_blob(myblob: func.InputStream, outputblob: func.Out[func.InputStream]):
+def process_m4a_blob(myblob: func.InputStream, outputblob: func.Out[func.InputStream]):
     try:
         # Log the blob details
         logging.info(
@@ -136,15 +122,3 @@ def process_blob(myblob: func.InputStream, outputblob: func.Out[func.InputStream
     except Exception as e:
         logging.error(f"An error occurred while writing the processed file: {e}")
         raise Exception(f"An error occurred while writing the processed file: {e}")
-
-
-@app.function_name(name="ReadFileBlobFunction")
-@app.blob_trigger(
-    arg_name="readfile",
-    path="newcontainer/People2.csv",
-    connection="AzureWebJobsStorage",
-)
-def main(readfile: func.InputStream):
-    reader = csv.reader(codecs.iterdecode(readfile, "utf-8"))
-    for line in reader:
-        print(line)
