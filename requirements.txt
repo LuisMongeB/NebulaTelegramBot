@@ -7,3 +7,6 @@ azure-storage-blob
 azure-storage-queue
 azure-data-tables
 azure-identity
+python-telegram-bot==21.7
+asyncio
+aiohttp

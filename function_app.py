@@ -1,11 +1,14 @@
+import asyncio
 import codecs
 import csv
 import datetime
 import json
 import logging
+import os
 
 import azure.functions as func
 from additional_functions import bp
+from services.telegram_service import TelegramService
 
 app = func.FunctionApp()
 
@@ -44,6 +47,16 @@ def save_audio_to_blob(chat_id, audio_file_id, timestamp):
 def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Python HTTP trigger function received a request from Telegram Bot.")
 
+    token = os.getenv("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        logging.error(f"Telegram Token not found in the environment variables.")
+        return func.HttpResponse(
+            "Telegram Token not found in the environment variables.", status_code=500
+        )
+
+    telegram_service = TelegramService(token)
+
+    logging.info(f"Instantiated the TelegramService class.")
     try:
         req_body = req.get_json()
         logging.info(f"Received message: {req_body}")
@@ -53,6 +66,11 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
         if "text" in message:
             text = message["text"]
             logging.info(f"Received text message: {text}")
+            asyncio.run(
+                telegram_service.send_message(
+                    chat_id=message["chat"]["id"], text=f"Received text message: {text}"
+                )
+            )
             return func.HttpResponse(f"Received text message: {text}", status_code=200)
         elif "audio" in message or "voice" in message:
             # Call the function to process the audio message
