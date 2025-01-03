@@ -75,9 +75,9 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
                 )
             )
             return func.HttpResponse(f"Received text message: {text}", status_code=200)
-        elif "audio" in message or "voice" in message:
+        elif "audio" in message:
             # Call the function to process the audio message
-            process_audio_message(message)
+            asyncio.run(process_audio_message(message, token))
             return func.HttpResponse(
                 "Audio message received and processing started.", status_code=200
             )
@@ -107,18 +107,15 @@ def process_m4a_blob(myblob: func.InputStream, outputblob: func.Out[func.InputSt
     try:
         # Log the blob details
         logging.info(
-            f"Python blob Function triggered after the .csv file was uploaded to filecontainer.\n"
+            f"Python blob Function triggered after the .m4a file was uploaded to filecontainer.\n"
             f"Blob path: {myblob.name}, Blob type: {type(myblob)}"
+            f"Blob content: {myblob}"
         )
 
-        # Read the blob content
-        content = myblob.read().decode("utf-8")  # Assuming the content is a text/csv
-
-        # Optionally process the content here
-        processed_content = content  # For now, we are not modifying the content
+        # Assuming the content is a text/csv
 
         # Set the processed content to the output blob
-        outputblob.set(processed_content)
+        outputblob.set(myblob)
 
         logging.info(
             f"Blob has been copied to the processed container with dynamic name."
