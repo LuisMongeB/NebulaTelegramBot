@@ -109,16 +109,21 @@ def process_m4a_blob(myblob: func.InputStream, outputblob: func.Out[func.InputSt
         logging.info(
             f"Python blob Function triggered after the .m4a file was uploaded to filecontainer.\n"
             f"Blob path: {myblob.name}, Blob type: {type(myblob)}"
-            f"Blob content: {myblob}"
         )
 
-        # Assuming the content is a text/csv
+        # Extract the chat_id from the blob name
+        chat_id = myblob.name.split("/")[-1].split("_")[0]
 
         # Set the processed content to the output blob
-        outputblob.set(myblob)
+        outputblob.set(myblob.read())
 
         logging.info(
             f"Blob has been copied to the processed container with dynamic name."
+        )
+        asyncio.run(
+            telegram_service.send_message(
+                chat_id=chat_id, text="The audio message has been processed."
+            )
         )
     except Exception as e:
         logging.error(f"An error occurred while writing the processed file: {e}")
