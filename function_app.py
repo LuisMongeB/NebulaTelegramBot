@@ -14,19 +14,14 @@ from message_processing.audio_processor import process_audio_message
 from services.telegram_service import TelegramService
 
 token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-
-if not token:
-    logging.error(f"Telegram Token not found in the environment variables.")
-    raise Exception("Telegram Token not found in the environment variables.")
-
 telegram_service = TelegramService(token)
 
 command_registry = CommandRegistry()
-start_command = StartCommand(telegram_service)
+start_command_handler = StartCommand(telegram_service)
 
 command_registry.register(
     "start",
-    start_command.execute,
+    start_command_handler.execute_with_name,
     "Start the bot",
     "Initialize the bot and see welcome message",
 )
@@ -50,17 +45,26 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
         # Check the type of message
         message = req_body.get("message", {})
 
+        # handle commands
         if "entities" in message and message["entities"][0]["type"] == "bot_command":
-            command_text = message["text"]
-            chat_id = message["chat"]["id"]
-            user_name = message["from"].get("username", "")
 
-            if command_text == "/start" and user_name:
-                logging.info(f"Received /start command from {user_name}")
-                asyncio.run(start_command.execute_with_name(chat_id, user_name))
-                return func.HttpResponse(
-                    f"Received /start command from {user_name}", status_code=200
+            command_name = message["text"]
+            chat_id = message["chat"]["id"]
+            username = message["from"].get("username", "")
+
+            if command_name == "/start":
+                response = asyncio.run(
+                    start_command_handler.execute_with_name(chat_id, username=username)
                 )
+                if response:
+                    return func.HttpResponse(
+                        "Start command executed correctly.", status_code=200
+                    )
+                else:
+                    return func.HttpResponse(
+                        "An error occurred while executing the start command.",
+                        status_code=500,
+                    )
 
         if "text" in message:
             text = message["text"]

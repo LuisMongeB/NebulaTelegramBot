@@ -1,8 +1,11 @@
 # command_registry.py
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Callable, Dict, Optional
+
+import azure.functions as func
 
 
 @dataclass
@@ -32,14 +35,26 @@ class CommandRegistry:
         self, command_name: str, chat_id: int, **kwargs
     ) -> Optional[str]:
         """Handle a command if it exists in the registry."""
-        command = self._commands.get(command_name)
-        if command:
-            try:
-                return await command.handler(chat_id, **kwargs)
-            except Exception as e:
-                logging.error(f"Error handling command {command_name}: {str(e)}")
-                return "Sorry, there was an error processing your command."
-        return None
+        username = kwargs.get("username", "")
+
+        if command_name == "/start":
+            start_command = self._commands.get(command_name)
+            if username:
+                logging.info(f"Received /start command from {username}")
+                logging.info(f"Command: {start_command}")
+                start_command.handler(chat_id, username=username)
+                return func.HttpResponse(
+                    f"Received /start command from {username}", status_code=200
+                )
+            else:
+                logging.info("Received /start command")
+                await start_command.handler(chat_id)
+                return func.HttpResponse("Received /start command", status_code=200)
+        elif command_name != "/start":
+            logging.info(f"Received unknown command: {command_name}")
+            return func.HttpResponse(
+                f"Received unknown command: {command_name}", status_code=500
+            )
 
     def get_available_commands(self) -> str:
         """Get a formatted string of available commands and their descriptions."""
@@ -51,19 +66,3 @@ class CommandRegistry:
         """Get the help text for a specific command."""
         command = self._commands.get(command_name)
         return command.help_text if command else None
-
-
-# Usage example:
-"""
-registry = CommandRegistry()
-
-async def start_handler(chat_id: int, **kwargs):
-    return "Welcome message..."
-
-registry.register(
-    'start',
-    start_handler,
-    'Start the bot',
-    'Use /start to initialize the bot and see available commands'
-)
-"""

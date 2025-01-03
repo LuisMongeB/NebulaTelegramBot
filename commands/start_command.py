@@ -91,7 +91,7 @@ class StartCommand:
             return False
 
     async def execute_with_name(
-        self, chat_id: int, user_name: Optional[str] = None
+        self, chat_id: int, username: Optional[str] = None
     ) -> bool:
         """
         Execute the start command with a personalized welcome message.
@@ -109,13 +109,13 @@ class StartCommand:
         """
         try:
             welcome_message = self._build_welcome_message()
-            if user_name:
+            if username:
                 # Insert the personalized greeting at the start
-                welcome_message = f"Hello, {user_name}! 👋\n\n{welcome_message}"
+                welcome_message = f"Hello, {username}! 👋\n\n{welcome_message}"
 
             await self.telegram_service.send_message(chat_id, welcome_message)
             logging.info(
-                f"Sent personalized welcome message to {user_name} (chat_id: {chat_id})"
+                f"Sent personalized welcome message to {username} (chat_id: {chat_id})"
             )
             return True
 
