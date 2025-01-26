@@ -41,8 +41,19 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
         req_body = req.get_json()
         logging.info(f"Received message: {req_body}")
 
+        if (
+            "my_chat_member" in req_body
+            or "message_auto_delete_timer_changed" in req_body.get("message", {})
+        ):
+            logging.info("Ignoring non-relevant message.")
+            return func.HttpResponse(status_code=200)
+
         # Check the type of message
         message = req_body.get("message", {})
+
+        if "message_auto_delete_timer_changed" in req_body.get("message", {}):
+            logging.info("Received an auto-delete timer change message.")
+            return func.HttpResponse(status_code=200)
 
         # handle commands
         if "entities" in message and message["entities"][0]["type"] == "bot_command":
@@ -74,8 +85,14 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
                 )
             )
             return func.HttpResponse(f"Received text message: {text}", status_code=200)
-        elif "audio" in message:
+
+        elif "audio" or "voice" in message:
             # Call the function to process the audio message
+            asyncio.run(
+                telegram_service.send_message(
+                    chat_id=message["chat"]["id"], text="Processing audio message..."
+                )
+            )
             asyncio.run(process_audio_message(message, token))
             return func.HttpResponse(
                 "Audio message received and processing started.", status_code=200
@@ -103,15 +120,10 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
     connection="AdditionalStorage",
 )
 def process_m4a_blob(myblob: func.InputStream, outputblob: func.Out[func.InputStream]):
+
     try:
         # Extract the chat_id from the blob name
         chat_id = myblob.name.split("/")[-1].split("_")[0]
-
-        asyncio.run(
-            telegram_service.send_message(
-                chat_id=chat_id, text=f"Processing audio file..."
-            )
-        )
         # Log the blob details
         logging.info(
             f"Python blob Function triggered after the .m4a file was uploaded to filecontainer.\n"
