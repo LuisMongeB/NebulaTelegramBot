@@ -7,6 +7,10 @@ local.settings.json
 # C extensions
 *.so
 
+# ffmpeg and ffprobe
+ffmpeg
+ffprobe
+.vscode
 # Distribution / packaging
 .Python
 build/
