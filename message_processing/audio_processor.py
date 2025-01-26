@@ -7,8 +7,6 @@ import os
 import aiohttp
 from azure.storage.blob.aio import BlobServiceClient
 
-# from pydub import AudioSegment
-
 
 # TODO: define audio processor class
 async def download_audio_file(file_id, token):
@@ -54,10 +52,36 @@ async def save_audio_to_blob(
         logging.error(f"Failed to save audio file to blob storage: {str(e)}")
 
 
+def convert_to_m4a(audio_bytes, input_format):
+
+    logging.info("Converting audio to m4a format")
+    cwd = os.getcwd()
+
+    # Add to PATH
+    os.environ["PATH"] = os.pathsep.join([os.getcwd(), os.environ.get("PATH", "")])
+    logging.info(f"Updated PATH: {os.environ['PATH']}")
+
+    from pydub import AudioSegment
+
+    AudioSegment.converter = os.path.join(cwd, "ffmpeg")
+    AudioSegment.ffprobe = os.path.join(cwd, "ffprobe")
+
+    logging.info(f"Converting from {input_format} to m4a")
+    audio = AudioSegment.from_ogg(io.BytesIO(audio_bytes))
+    m4a_audio_io = io.BytesIO()
+    audio.export(m4a_audio_io, format="mp4")
+    m4a_audio_io.seek(0)
+    return m4a_audio_io.read()
+
+
 async def process_audio_message(message, token):
     # Extract audio file details from the message
     logging.info(f"Processing message: {message}")
-    audio_file_id = message.get("audio", {}).get("file_id")
+    audio_file_id = (
+        message.get("audio", {}).get("file_id")
+        if message.get("audio", {}).get("file_id")
+        else message.get("voice", {}).get("file_id")
+    )
     chat_id = message.get("chat", {}).get("id", "No chat id")
     timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d%H%M%S")
 
@@ -66,15 +90,17 @@ async def process_audio_message(message, token):
     if not audio_data:
         logging.error(f"Failed to download audio file with file_id: {audio_file_id}")
         return
-    # Convert the audio data to M4A format
-    # try:
-    #     logging.info(
-    #         f"Converting audio data to M4A format: {len(audio_data)} in {file_extension} format"
-    #     )
-    #     m4a_audio_data = convert_to_m4a(audio_data, file_extension)
-    # except Exception as e:
-    #     logging.error(f"Failed to convert audio to m4a format: {e}")
-    #     return
+
+    if file_extension != "m4a":
+        # Convert the audio data to M4A format
+        try:
+            logging.info(
+                f"Converting audio data to M4A format: {len(audio_data)} in {file_extension} format"
+            )
+            audio_data = convert_to_m4a(audio_data, file_extension)
+        except Exception as e:
+            logging.error(f"Failed to convert audio to m4a format: {e}")
+            return
 
     # Save the M4A audio file to Azure Blob Storage
     await save_audio_to_blob(chat_id, audio_data, timestamp)
