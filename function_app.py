@@ -104,6 +104,14 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
 )
 def process_m4a_blob(myblob: func.InputStream, outputblob: func.Out[func.InputStream]):
     try:
+        # Extract the chat_id from the blob name
+        chat_id = myblob.name.split("/")[-1].split("_")[0]
+
+        asyncio.run(
+            telegram_service.send_message(
+                chat_id=chat_id, text=f"Processing audio file..."
+            )
+        )
         # Log the blob details
         logging.info(
             f"Python blob Function triggered after the .m4a file was uploaded to filecontainer.\n"
@@ -115,11 +123,8 @@ def process_m4a_blob(myblob: func.InputStream, outputblob: func.Out[func.InputSt
             openai_service.transcribe_audio(audio_data=m4a_blob_bytes)
         )
 
-        # Extract the chat_id from the blob name
-        chat_id = myblob.name.split("/")[-1].split("_")[0]
-
         # Set the processed content to the output blob
-        outputblob.set(myblob.read())
+        outputblob.set(m4a_blob_bytes)
 
         logging.info(
             f"Blob has been copied to the processed container with dynamic name."

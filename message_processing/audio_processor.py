@@ -10,6 +10,7 @@ from azure.storage.blob.aio import BlobServiceClient
 # from pydub import AudioSegment
 
 
+# TODO: define audio processor class
 async def download_audio_file(file_id, token):
     async with aiohttp.ClientSession() as session:
         # Get file path from Telegram's getFile endpoint
@@ -20,13 +21,11 @@ async def download_audio_file(file_id, token):
         logging.info(f"Response status: {response.status}")
 
         result = await response.json()
-        logging.info(f"getFile response: {result}")
         file_path = result.get("result", {}).get("file_path")
 
         if not file_path:
             logging.error(f"Failed to get file path for file_id: {file_id}")
             return None
-        logging.info(f"File path: {file_path}")
         # Download the file using the file path
         file_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
         response = await session.get(file_url)
@@ -36,30 +35,19 @@ async def download_audio_file(file_id, token):
         )  # Return the file bytes and extension
 
 
-# def convert_to_m4a(audio_bytes, input_format):
-#     logging.info("Converting audio to m4a format")
-#     audio = AudioSegment.from_file(io.BytesIO(audio_bytes), format=input_format)
-#     m4a_audio_io = io.BytesIO()
-#     audio.export(m4a_audio_io, format="m4a")
-#     m4a_audio_io.seek(0)
-#     return m4a_audio_io.read()
-
-
-async def save_audio_to_blob(chat_id, m4a_audio_data, timestamp):
+async def save_audio_to_blob(
+    chat_id, m4a_audio_data, timestamp, container_name="filecontainer"
+):
+    # TODO: generalize container name and blob name extension
     try:
-        logging.info(
-            f"AdditionalStorage__blobStorageUri: {os.getenv('AdditionalStorage__blobServiceUri')}"
-        )
-        blob_service_client = BlobServiceClient.from_connection_string(
+        async with BlobServiceClient.from_connection_string(
             os.getenv("AdditionalStorage")
-        )
-        container_name = "filecontainer"
-        blob_name = f"{chat_id}_{timestamp}.m4a"
-        logging.info(f"M4a data type: {type(m4a_audio_data)}")
-        blob_client = blob_service_client.get_blob_client(
-            container=container_name, blob=blob_name
-        )
-        await blob_client.upload_blob(m4a_audio_data, blob_type="BlockBlob")
+        ) as blob_service_client:
+            blob_name = f"{chat_id}_{timestamp}.m4a"
+            blob_client = blob_service_client.get_blob_client(
+                container=container_name, blob=blob_name
+            )
+            await blob_client.upload_blob(m4a_audio_data)
 
         logging.info(f"Audio message saved to blob storage at {blob_name}")
     except Exception as e:
@@ -78,7 +66,6 @@ async def process_audio_message(message, token):
     if not audio_data:
         logging.error(f"Failed to download audio file with file_id: {audio_file_id}")
         return
-    logging.info(f"Downloaded audio data: {type(audio_data)}")
     # Convert the audio data to M4A format
     # try:
     #     logging.info(
@@ -92,6 +79,4 @@ async def process_audio_message(message, token):
     # Save the M4A audio file to Azure Blob Storage
     await save_audio_to_blob(chat_id, audio_data, timestamp)
 
-    logging.info(
-        f"Processing audio message from chat: {chat_id} with file_id: {audio_file_id}"
-    )
+    logging.info(f"Processed incoming audio message from chat: {chat_id}")
