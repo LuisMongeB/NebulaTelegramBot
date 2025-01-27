@@ -7,13 +7,14 @@ import azure.functions as func
 from additional_functions import bp
 from commands.command_registry import CommandRegistry
 from commands.start_command import StartCommand
-from message_processing.audio_processor import process_audio_message
+from message_processing.audio_processor import AudioProcessor
 from services.openai_service import OpenAIService
 from services.telegram_service import TelegramService
 
 token = os.getenv("TELEGRAM_BOT_TOKEN", "")
 telegram_service = TelegramService(token)
 openai_service = OpenAIService(os.getenv("OPENAI_API_KEY", ""))
+audio_processor = AudioProcessor(telegram_service)
 
 command_registry = CommandRegistry()
 start_command_handler = StartCommand(telegram_service)
@@ -93,7 +94,19 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
                     chat_id=message["chat"]["id"], text="Processing audio message..."
                 )
             )
-            asyncio.run(process_audio_message(message, token))
+            audio_data = asyncio.run(
+                audio_processor.process_audio_message(message, token)
+            )
+            transcription, language = asyncio.run(
+                openai_service.transcribe_audio(audio_data=audio_data)
+            )
+
+            asyncio.run(
+                telegram_service.send_message(
+                    chat_id=message["chat"]["id"],
+                    text=f"[{language}] Transcription:\n{transcription}",
+                )
+            )
             return func.HttpResponse(
                 "Audio message received and processing started.", status_code=200
             )
