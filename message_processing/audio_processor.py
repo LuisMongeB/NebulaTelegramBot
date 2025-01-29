@@ -14,6 +14,7 @@ class AudioProcessor:
     def __init__(
         self,
         telegram_service: telegram_service.TelegramService,
+        openai_service: openai_service.OpenAIService,
     ):
         self.openai_service = openai_service
         self.telegram_service = telegram_service
@@ -84,11 +85,9 @@ class AudioProcessor:
     async def process_audio_message(self, message, token):
         # Extract audio file details from the message
         logging.info(f"Processing message: {message}")
-        audio_file_id = (
-            message.get("audio", {}).get("file_id")
-            if message.get("audio", {}).get("file_id")
-            else message.get("voice", {}).get("file_id")
-        )
+        audio = message.get("audio")
+        voice = message.get("voice")
+        audio_file_id = audio.get("file_id") if audio else voice.get("file_id")
         chat_id = message.get("chat", {}).get("id", "No chat id")
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y%m%d%H%M%S"
@@ -119,6 +118,10 @@ class AudioProcessor:
         # await save_audio_to_blob(chat_id, audio_data, timestamp)
 
         # Transcribe the audio message
+        transcription, language = await self.openai_service.transcribe_audio(
+            audio_data=audio_data
+        )
+
         logging.info(f"Processed incoming audio message from chat: {chat_id}")
 
-        return audio_data
+        return transcription, language

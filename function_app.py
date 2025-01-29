@@ -8,13 +8,14 @@ from additional_functions import bp
 from commands.command_registry import CommandRegistry
 from commands.start_command import StartCommand
 from message_processing.audio_processor import AudioProcessor
+from message_processing.transcription_processor import summarize_transcription
 from services.openai_service import OpenAIService
 from services.telegram_service import TelegramService
 
 token = os.getenv("TELEGRAM_BOT_TOKEN", "")
 telegram_service = TelegramService(token)
 openai_service = OpenAIService(os.getenv("OPENAI_API_KEY", ""))
-audio_processor = AudioProcessor(telegram_service)
+audio_processor = AudioProcessor(telegram_service, openai_service)
 
 command_registry = CommandRegistry()
 start_command_handler = StartCommand(telegram_service)
@@ -91,7 +92,40 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
         elif "audio" in message or "voice" in message:
             # SET DURATION LIMIT -> TODO: good for now but do it better, don't hardcode it
             duration = message.get("audio", message.get("voice", {})).get("duration", 0)
-            if duration > 600:
+            if duration < 600:
+                asyncio.run(
+                    telegram_service.send_message(
+                        chat_id=message["chat"]["id"],
+                        text="Processing audio message...",
+                    )
+                )
+                transcription, language = asyncio.run(
+                    audio_processor.process_audio_message(message, token)
+                )
+
+                if duration > 90:
+                    final_transcription = asyncio.run(
+                        summarize_transcription(transcription, language, openai_service)
+                    )
+                    asyncio.run(
+                        telegram_service.send_message(
+                            chat_id=message["chat"]["id"], text=f"{final_transcription}"
+                        )
+                    )
+                else:
+                    final_transcription = transcription
+                    asyncio.run(
+                        telegram_service.send_message(
+                            chat_id=message["chat"]["id"],
+                            text=f"[{language}] Transcription:\n{final_transcription}",
+                        )
+                    )
+
+                return func.HttpResponse(
+                    "Audio messages longer than 10 minute are not supported.",
+                    status_code=200,
+                )
+            else:
                 asyncio.run(
                     telegram_service.send_message(
                         chat_id=message["chat"]["id"],
@@ -102,27 +136,6 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
                     "Audio messages longer than 10 minute are not supported.",
                     status_code=200,
                 )
-            asyncio.run(
-                telegram_service.send_message(
-                    chat_id=message["chat"]["id"], text="Processing audio message..."
-                )
-            )
-            audio_data = asyncio.run(
-                audio_processor.process_audio_message(message, token)
-            )
-            transcription, language = asyncio.run(
-                openai_service.transcribe_audio(audio_data=audio_data)
-            )
-
-            asyncio.run(
-                telegram_service.send_message(
-                    chat_id=message["chat"]["id"],
-                    text=f"[{language}] Transcription:\n{transcription}",
-                )
-            )
-            return func.HttpResponse(
-                "Audio message received and processing started.", status_code=200
-            )
         else:
             logging.info("Received unknown type of message.")
             return func.HttpResponse(
