@@ -27,7 +27,7 @@ class StartCommandConfig:
         "3. Get your transcription, summary, and response!"
     )
     privacy_notice: str = (
-        "🔒 Your messages are processed securely and deleted immediately after processing."
+        "🔒 Your messages are processed securely **are note stored**."
     )
     try_now_prompt: str = "Try it now by sending a voice message! 🎤"
 
