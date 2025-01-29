@@ -4,9 +4,10 @@ __pycache__/
 *$py.class
 host.json
 local.settings.json
+.DS_Store
 # C extensions
 *.so
-
+*.env
 # ffmpeg and ffprobe
 ffmpeg
 ffprobe
