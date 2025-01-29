@@ -80,6 +80,7 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
         if "text" in message:
             text = message["text"]
             logging.info(f"Received text message: {text}")
+            logging.info(f"Message: ", message)
             asyncio.run(
                 telegram_service.send_message(
                     chat_id=message["chat"]["id"], text=f"Received text message: {text}"
@@ -87,8 +88,20 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
             )
             return func.HttpResponse(f"Received text message: {text}", status_code=200)
 
-        elif "audio" or "voice" in message:
-            # Call the function to process the audio message
+        elif "audio" in message or "voice" in message:
+            # SET DURATION LIMIT -> TODO: good for now but do it better, don't hardcode it
+            duration = message.get("audio", message.get("voice", {})).get("duration", 0)
+            if duration > 600:
+                asyncio.run(
+                    telegram_service.send_message(
+                        chat_id=message["chat"]["id"],
+                        text="Audio messages longer than 10 minute are not supported.",
+                    )
+                )
+                return func.HttpResponse(
+                    "Audio messages longer than 10 minute are not supported.",
+                    status_code=200,
+                )
             asyncio.run(
                 telegram_service.send_message(
                     chat_id=message["chat"]["id"], text="Processing audio message..."
@@ -123,42 +136,42 @@ def telegram_bot_function(req: func.HttpRequest) -> func.HttpResponse:
         )
 
 
-@app.function_name(name="ProcessM4AFile")
-@app.blob_trigger(
-    arg_name="myblob", path="filecontainer/{name}.m4a", connection="AdditionalStorage"
-)
-@app.blob_output(
-    arg_name="outputblob",
-    path="processedcontainer/{name}_processed.m4a",  # Use a placeholder for dynamic blob name
-    connection="AdditionalStorage",
-)
-def process_m4a_blob(myblob: func.InputStream, outputblob: func.Out[func.InputStream]):
+# @app.function_name(name="ProcessM4AFile")
+# @app.blob_trigger(
+#     arg_name="myblob", path="filecontainer/{name}.m4a", connection="AdditionalStorage"
+# )
+# @app.blob_output(
+#     arg_name="outputblob",
+#     path="processedcontainer/{name}_processed.m4a",  # Use a placeholder for dynamic blob name
+#     connection="AdditionalStorage",
+# )
+# def process_m4a_blob(myblob: func.InputStream, outputblob: func.Out[func.InputStream]):
 
-    try:
-        # Extract the chat_id from the blob name
-        chat_id = myblob.name.split("/")[-1].split("_")[0]
-        # Log the blob details
-        logging.info(
-            f"Python blob Function triggered after the .m4a file was uploaded to filecontainer.\n"
-            f"Blob path: {myblob.name}, Blob type: {type(myblob)}"
-        )
+#     try:
+#         # Extract the chat_id from the blob name
+#         chat_id = myblob.name.split("/")[-1].split("_")[0]
+#         # Log the blob details
+#         logging.info(
+#             f"Python blob Function triggered after the .m4a file was uploaded to filecontainer.\n"
+#             f"Blob path: {myblob.name}, Blob type: {type(myblob)}"
+#         )
 
-        m4a_blob_bytes = myblob.read()
-        transcription, language = asyncio.run(
-            openai_service.transcribe_audio(audio_data=m4a_blob_bytes)
-        )
+#         m4a_blob_bytes = myblob.read()
+#         transcription, language = asyncio.run(
+#             openai_service.transcribe_audio(audio_data=m4a_blob_bytes)
+#         )
 
-        # Set the processed content to the output blob
-        outputblob.set(m4a_blob_bytes)
+#         # Set the processed content to the output blob
+#         outputblob.set(m4a_blob_bytes)
 
-        logging.info(
-            f"Blob has been copied to the processed container with dynamic name."
-        )
-        asyncio.run(
-            telegram_service.send_message(
-                chat_id=chat_id, text=f"Transcription:\n{transcription}"
-            )
-        )
-    except Exception as e:
-        logging.error(f"An error occurred while writing the processed file: {e}")
-        raise Exception(f"An error occurred while writing the processed file: {e}")
+#         logging.info(
+#             f"Blob has been copied to the processed container with dynamic name."
+#         )
+#         asyncio.run(
+#             telegram_service.send_message(
+#                 chat_id=chat_id, text=f"Transcription:\n{transcription}"
+#             )
+#         )
+#     except Exception as e:
+#         logging.error(f"An error occurred while writing the processed file: {e}")
+#         raise Exception(f"An error occurred while writing the processed file: {e}")
