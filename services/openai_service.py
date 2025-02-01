@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, Optional, Tuple
 
 import backoff
-from openai import OpenAI, OpenAIError
+from openai import OpenAI, OpenAIError, RateLimitError
 
 
 class OpenAIService:
@@ -93,7 +93,7 @@ class OpenAIService:
             logging.error(f"Unexpected error: {str(e)}", exc_info=True)
             return None
 
-    @backoff.on_exception(backoff.expo, OpenAIError, max_tries=3)
+    @backoff.on_exception(backoff.expo, OpenAIError, max_tries=1)
     async def generate_chat_completion(
         self,
         messages: list,
