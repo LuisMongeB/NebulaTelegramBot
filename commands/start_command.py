@@ -12,9 +12,9 @@ class StartCommandConfig:
     the welcome message and its components without changing the command logic.
     """
 
-    welcome_title: str = "Welcome to Nebula."
+    welcome_title: str = "Hi, I'm Nebula"
     bot_description: str = (
-        "I will help you with audio messages that are sent from chats on Whatsapp and Telegram."
+        "I'll help you with audio messages that are sent from chats on Whatsapp or Telegram."
     )
     capabilities: list[str] = (
         "• Convert voice messages to text\n"
