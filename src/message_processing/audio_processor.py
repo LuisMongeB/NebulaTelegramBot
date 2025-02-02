@@ -7,7 +7,7 @@ import os
 import aiohttp
 from azure.storage.blob.aio import BlobServiceClient
 
-from services import openai_service, telegram_service
+from src.services import openai_service, telegram_service
 
 
 class AudioProcessor:

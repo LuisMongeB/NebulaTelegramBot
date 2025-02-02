@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Dict, List
 
-from services.openai_service import OpenAIService
+from src.services.openai_service import OpenAIService
 
 
 async def summarize_transcription(

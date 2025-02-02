@@ -4,12 +4,12 @@ import os
 import azure.functions as func
 
 from additional_functions import bp
-from commands.command_registry import CommandRegistry
-from commands.start_command import StartCommand
-from message_processing.audio_processor import AudioProcessor
-from message_processing.transcription_processor import summarize_transcription
-from services.openai_service import OpenAIService
-from services.telegram_service import TelegramService
+from src.commands.command_registry import CommandRegistry
+from src.commands.start_command import StartCommand
+from src.message_processing.audio_processor import AudioProcessor
+from src.message_processing.transcription_processor import summarize_transcription
+from src.services.openai_service import OpenAIService
+from src.services.telegram_service import TelegramService
 
 token = os.getenv("TELEGRAM_BOT_TOKEN", "")
 telegram_service = TelegramService(token)

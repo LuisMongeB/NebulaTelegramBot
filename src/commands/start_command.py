@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
-from services.telegram_service import TelegramService
+from src.services.telegram_service import TelegramService
 
 
 @dataclass
@@ -26,9 +26,7 @@ class StartCommandConfig:
         "2. Wait while I process it\n"
         "3. Get your transcription, summary, and response!"
     )
-    privacy_notice: str = (
-        "🔒 Your messages are processed securely **are note stored**."
-    )
+    privacy_notice: str = "🔒 Your messages are processed securely **are note stored**."
     try_now_prompt: str = "Try it now by sending a voice message! 🎤"
 
 
