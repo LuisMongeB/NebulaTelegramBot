@@ -1,5 +1,4 @@
-# To enable ssh & remote debugging on app service change the base image to the one below
-# FROM mcr.microsoft.com/azure-functions/python:4-python3.10-appservice
+# Use the official Azure Functions runtime image
 FROM mcr.microsoft.com/azure-functions/python:4-python3.10
 
 # Install Azure Functions Core Tools
@@ -15,6 +14,12 @@ ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
 COPY requirements.txt /
 RUN pip install -r /requirements.txt
 
+# Set the working directory to /home/site/wwwroot
 WORKDIR /home/site/wwwroot
 
-COPY . /home/site/wwwroot
+# Copy function_app.py and other necessary files to /home/site/wwwroot
+COPY function_app.py /home/site/wwwroot
+COPY additional_functions.py /home/site/wwwroot
+
+# Copy the entire src directory to /home/site/wwwroot/src
+COPY src /home/site/wwwroot/src
