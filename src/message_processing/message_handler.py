@@ -13,25 +13,24 @@ from .transcription_processor import summarize_transcription
 class MessageHandler:
     def __init__(
         self,
-        message: Dict,
         openai_service: OpenAIService,
         telegram_service: TelegramService,
         audio_processor: AudioProcessor,
     ):
-        self.message = message
         self.openai_service = openai_service
         self.telegram_service = telegram_service
         self.audio_processor = audio_processor
 
-    async def handle_message(self, message: Dict):
+    async def handle_update(self, update: Dict) -> func.HttpResponse:
         """
         Main entry point for handling different types of messages.
         Returns a tuple of (response_message, status_code)
         """
         try:
-            if self._is_system_message(message):
+            if self._is_system_message(update):
                 return func.HttpResponse("Ignoring system message", status_code=200)
 
+            message = update.get("message", {})
             message_type = self._get_message_type(message)
 
             handlers = {
@@ -84,13 +83,13 @@ class MessageHandler:
         """Handle audio messages"""
         try:
             chat_id = message["chat"]["id"]
-            audio = message["audio"]
-            duration = audio["duration"]
+            logging.info(f"Received audio message {message}")
+            audio = message.get("audio", message.get("voice", {}))
+            duration = audio.get("duration", 0)
             file_id = audio["file_id"]
             max_audio_duration = 420
             summarization_threshold = 90
 
-            # SET DURATION LIMIT -> TODO: good for now but improve later, don't hardcode it
             duration = message.get("audio", message.get("voice", {})).get("duration", 0)
             if duration < max_audio_duration:
                 await self.telegram_service.send_message(
@@ -103,7 +102,6 @@ class MessageHandler:
                         message, self.telegram_service.bot_token
                     )
                 )
-                print(f"Transcription: {transcription}")
                 if duration > summarization_threshold:
                     final_transcription = await summarize_transcription(
                         transcription, language, self.openai_service
