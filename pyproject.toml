@@ -1,7 +1,7 @@
 [project]
-name = "telegram-bot"
+name = "nebula-telegram-bot"
 version = "0.1.0"
-description = "Add your description here"
+description = "Nebula Agent"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
