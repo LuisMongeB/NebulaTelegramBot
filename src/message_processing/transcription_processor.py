@@ -19,20 +19,33 @@ async def summarize_transcription(
         str: The summarized transcription
     """
     summarize_prompt = f"""The following is a transcription from an audio message in {language}. Please summarize the message following these rules:
-        1. Keep the summary under 500 characters.
-        2. Briefly mention the main topics and main points while narrating it in the order of topics, tone and style of the transcription.
-        3. Outline the main topics and for each topic include a maxim seven word sentence.
-        4. Do not include any preamble or greetings in the summary.
-        5. Make sure the final summary is strongly based on the received message.
-        6. Make sure the final summary is in {language}."""
+        1. An audio is sent to you from a chat the user has with somebody else, keep the summary down to the main topics and supporting details.
+        2. Summary must be brief but mention the main topics and main points while narrating it in the order of appearance of the topics, tone and style of the transcription.
+        3. Do not include any preamble or greetings in the summary.
+        4. Make sure the final summary is strongly based on the received message.
+        5. Make sure the final summary is in {language}.
+        6. It is mandatory that the summary is formmated with html tags supported by Telegram to escape these special characters.
+
+        Telegram supports these HTML tags:
+
+            <b> or <strong> - Bold
+            <i> or <em> - Italic
+            <u> - Underline
+            <s> or <del> - Strikethrough
+                
+            Important considerations
+            You must escape special characters:
+        """
 
     try:
         # Use the OpenAI service to summarize the transcription
         messages = [
-            {"role": "system", "content": summarize_prompt},
+            {"role": "developer", "content": summarize_prompt},
             {"role": "user", "content": transcription},
         ]
         summary = await openai_service.generate_chat_completion(messages=messages)
+
+        logging.info(f"Summary: {summary}")
         return summary
 
     except Exception as e:
