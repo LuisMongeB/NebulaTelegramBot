@@ -13,8 +13,8 @@ from src.message_processing.transcription_processor import summarize_transcripti
 from src.services.openai_service import OpenAIService
 from src.services.telegram_service import TelegramService
 
-token = os.getenv("TELEGRAM_BOT_TOKEN", "")
-telegram_service = TelegramService(token)
+
+telegram_service = TelegramService(os.getenv("TELEGRAM_BOT_TOKEN", ""))
 openai_service = OpenAIService(os.getenv("OPENAI_API_KEY", ""))
 audio_processor = AudioProcessor(telegram_service, openai_service)
 
