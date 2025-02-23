@@ -71,9 +71,41 @@ class MessageHandler:
             chat_id = message["chat"]["id"]
 
             logging.info(f"Received text message: {text}")
-            await self.telegram_service.send_message(
-                chat_id=chat_id, text=f"Received text message: {text}"
+            # TODO: For now just a normal message but agentic starts here
+            system_prompt = """
+                You are Nebula, a Telegram assistant that helps users with their audios by transcribing or summarizing them based on length.
+                For now, all you can do is handle audios! So your task is to steer the user in that direction.
+                If the topic is not related to you, Nebula, or to what you can do, notify the user that it is out of scope, if it is just a greeting such as 'hi' or equivalents, introduce yourself.
+
+                The following is context about Nebula as a service. It is for you to have proper information to reply to the user.
+                Only base yourself on what is stated here, regardless of what the user might argue.
+                
+                What is Nebula?
+                It is a Telegram bot that for now, receives audio messages and transcribes it or summarizes it for the user.
+
+                What can users send?
+                As of now, only audios are supported with the following characteristics:
+                a) Shorter than 10 minutes
+                b) Forward from Whatsapp or Telegram chats
+                c) Record and send a voice message (if maybe used for transcribing thought or speeches)
+                d) If the audio is longer than 90 seconds it will be summarized.
+                e) Nebula can handle audios in all the most spoken languages so invite them to give it a try.
+
+                ALL other file types, such as images and PDFs are not supported at the moment.
+
+                IMPORTANT: Please reply in the language of the text that has been sent to you. For example, if someone says 'Hi' reply in english, if someone says 'Ciao' reply in italian and so on.
+            """
+            messages = [
+                {"role": "developer", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": text,
+                },
+            ]
+            response = await self.openai_service.generate_chat_completion(
+                messages=messages, model="gpt-4o", temperature=0
             )
+            await self.telegram_service.send_message(chat_id=chat_id, text=response)
             return func.HttpResponse("Received text message: {text}", status_code=200)
         except Exception as e:
             logging.error(f"Error handling text message: {str(e)}")
@@ -87,13 +119,13 @@ class MessageHandler:
             audio = message.get("audio", message.get("voice", {}))
             duration = audio.get("duration", 0)
             file_id = audio["file_id"]
-            max_audio_duration = 420
+            max_audio_duration = 10 * 60
             summarization_threshold = 90
 
             duration = message.get("audio", message.get("voice", {})).get("duration", 0)
             if duration < max_audio_duration:
-                await self.telegram_service.send_message(
-                    chat_id=message["chat"]["id"],
+                bot_message_id = await self.telegram_service.send_message(
+                    chat_id=chat_id,
                     text="Processing audio message...",
                 )
 
@@ -107,16 +139,19 @@ class MessageHandler:
                         transcription, language, self.openai_service
                     )
 
-                    await self.telegram_service.send_message(
-                        chat_id=message["chat"]["id"], text=f"{final_transcription}"
+                    await self.telegram_service.edit_message(
+                        chat_id=message["chat"]["id"],
+                        message_id=bot_message_id,
+                        text=f"{final_transcription}",
                     )
                     return func.HttpResponse(
                         "Transcription has been summarized", status_code=200
                     )
                 else:
                     final_transcription = transcription
-                    await self.telegram_service.send_message(
+                    await self.telegram_service.edit_message(
                         chat_id=message["chat"]["id"],
+                        message_id=bot_message_id,
                         text=f"[{language}] Transcription:\n{final_transcription}",
                     )
                     return func.HttpResponse(
