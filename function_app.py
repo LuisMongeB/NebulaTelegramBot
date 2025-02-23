@@ -6,10 +6,10 @@ import azure.functions as func
 from additional_functions import bp
 from src.commands.command_registry import CommandRegistry
 from src.commands.start_command import StartCommand
+from src.db.users_db import NebulaUserDB
 from src.message_processing.audio_processor import AudioProcessor
 from src.message_processing.message_handler import MessageHandler
 from src.message_processing.transcription_processor import summarize_transcription
-from src.services.mongodb_service import NebulaUsers
 from src.services.openai_service import OpenAIService
 from src.services.telegram_service import TelegramService
 
@@ -18,8 +18,7 @@ telegram_service = TelegramService(token)
 openai_service = OpenAIService(os.getenv("OPENAI_API_KEY", ""))
 audio_processor = AudioProcessor(telegram_service, openai_service)
 
-user_db = NebulaUsers(os.getenv("MONGODB_CONNECTION_STRING", ""))
-
+user_db = NebulaUserDB(os.getenv("COSMOSDB_CONNECTION_STRING", ""))
 
 message_handler = MessageHandler(
     openai_service=openai_service,
