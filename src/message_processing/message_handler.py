@@ -3,6 +3,8 @@ from typing import Dict, Tuple
 
 import azure.functions as func
 
+from src.commands.command_registry import CommandRegistry
+from src.commands.start_command import StartCommand
 from src.services.openai_service import OpenAIService
 from src.services.telegram_service import TelegramService
 
@@ -34,6 +36,7 @@ class MessageHandler:
             message_type = self._get_message_type(message)
 
             handlers = {
+                "command": self.handle_command,
                 "text": self.handle_text,
                 "audio": self.handle_audio,
                 "voice": self.handle_audio,
@@ -56,6 +59,10 @@ class MessageHandler:
 
     def _get_message_type(self, message: Dict):
         """Determine the type of message received"""
+        entities = message.get("entities", [])
+
+        if any(entity["type"] == "bot_command" for entity in entities):
+            return "command"
         if "text" in message:
             return "text"
         elif "audio" in message:
@@ -169,6 +176,27 @@ class MessageHandler:
         except Exception as e:
             logging.error(f"Error handling audio message: {str(e)}")
             return func.HttpResponse("Error processing audio message", status_code=500)
+
+    async def handle_command(self, message: Dict):
+
+        command_registry = CommandRegistry()
+        start_command_handler = StartCommand(self.telegram_service)
+
+        command_registry.register(
+            "start",
+            start_command_handler.execute_with_name,
+            "Start the bot",
+            "Initialize the bot and see the welcome message",
+        )
+        # FOR NOW JUST USE THE COMMAND
+        executed_command = await start_command_handler.execute(message["chat"]["id"])
+
+        if not executed_command:
+            return func.HttpResponse(f"An error ocurred while running telegram command")
+        return func.HttpResponse(
+            f"Start command triggered successfully",
+            status_code=200,
+        )
 
     async def handle_unknown(self, message: Dict) -> Tuple[str, int]:
         """Handle unknown message types"""
