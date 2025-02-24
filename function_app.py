@@ -26,16 +26,6 @@ message_handler = MessageHandler(
     audio_processor=audio_processor,
 )
 
-command_registry = CommandRegistry()
-start_command_handler = StartCommand(telegram_service)
-
-command_registry.register(
-    "start",
-    start_command_handler.execute_with_name,
-    "Start the bot",
-    "Initialize the bot and see the welcome message",
-)
-
 app = func.FunctionApp()
 
 app.register_blueprint(bp)
