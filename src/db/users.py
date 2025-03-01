@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from azure.cosmos import CosmosClient, exceptions
 
 
-class NebulaUserDB:
+class NebulaUsers:
     def __init__(
         self,
         connection_string: str,
