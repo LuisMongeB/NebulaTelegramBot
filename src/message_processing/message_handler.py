@@ -3,13 +3,14 @@ from typing import Dict, Tuple
 
 import azure.functions as func
 
+from src.agents.audio_agent import AudioAgent
 from src.commands.command_registry import CommandRegistry
 from src.commands.start_command import StartCommand
 from src.services.openai_service import OpenAIService
 from src.services.telegram_service import TelegramService
 
 from .audio_processor import AudioProcessor
-from .transcription_processor import summarize_transcription
+from .transcriptions import Transcriber
 
 
 class MessageHandler:
@@ -79,6 +80,8 @@ class MessageHandler:
 
             logging.info(f"Received text message: {text}")
             # TODO: For now just a normal message but agentic starts here
+            # Create supervisor agent that takes user message + conversation history and returns response
+            # Agent State needs: name: str, message: Dict, available_tools: List[str], check_with_human: bool,
             system_prompt = """
                 You are Nebula, a Telegram assistant that helps users with their audios by transcribing or summarizing them based on length.
                 For now, all you can do is handle audios! So your task is to steer the user in that direction.
@@ -110,7 +113,7 @@ class MessageHandler:
                 },
             ]
             response = await self.openai_service.generate_chat_completion(
-                messages=messages, model="gpt-4o", temperature=0
+                messages=messages, model="gpt-4o-mini", temperature=0
             )
             await self.telegram_service.send_message(chat_id=chat_id, text=response)
             return func.HttpResponse("Received text message: {text}", status_code=200)
@@ -120,6 +123,7 @@ class MessageHandler:
 
     async def handle_audio(self, message: Dict) -> Tuple[str, int]:
         """Handle audio messages"""
+
         try:
             chat_id = message["chat"]["id"]
             logging.info(f"Received audio message {message}")
@@ -127,13 +131,13 @@ class MessageHandler:
             duration = audio.get("duration", 0)
             file_id = audio["file_id"]
             max_audio_duration = 10 * 60
-            summarization_threshold = 90
+            summarization_threshold = 250
 
             duration = message.get("audio", message.get("voice", {})).get("duration", 0)
             if duration < max_audio_duration:
                 bot_message_id = await self.telegram_service.send_message(
                     chat_id=chat_id,
-                    text="Processing audio message...",
+                    text="Transcribing audio message...",
                 )
 
                 transcription, language = (
@@ -142,14 +146,20 @@ class MessageHandler:
                     )
                 )
                 if duration > summarization_threshold:
-                    final_transcription = await summarize_transcription(
-                        transcription, language, self.openai_service
+                    await self.telegram_service.edit_message(
+                        chat_id=message["chat"]["id"],
+                        message_id=bot_message_id,
+                        text=f"Audio message transcribed. Summarizing...",
+                    )
+                    audio_agent = AudioAgent(model_name="gpt-4o-mini", temperature=0)
+                    audio_agent_response = audio_agent.process_transcription(
+                        transcription, language
                     )
 
                     await self.telegram_service.edit_message(
                         chat_id=message["chat"]["id"],
                         message_id=bot_message_id,
-                        text=f"{final_transcription}",
+                        text=f"{audio_agent_response['summary']}",
                     )
                     return func.HttpResponse(
                         "Transcription has been summarized", status_code=200
