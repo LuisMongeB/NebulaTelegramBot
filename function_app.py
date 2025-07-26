@@ -9,18 +9,18 @@ from src.commands.start_command import StartCommand
 from src.db.users import NebulaUsers
 from src.message_processing.audio_processor import AudioProcessor
 from src.message_processing.message_handler import MessageHandler
-from src.message_processing.transcription_processor import summarize_transcription
-from src.services.openai_service import OpenAIService
+from src.message_processing.transcriptions import summarize_transcription
+from src.services.llm_service import LLMService
 from src.services.telegram_service import TelegramService
 
 telegram_service = TelegramService(os.getenv("TELEGRAM_BOT_TOKEN", ""))
-openai_service = OpenAIService(os.getenv("OPENAI_API_KEY", ""))
-audio_processor = AudioProcessor(telegram_service, openai_service)
+llm_service = LLMService(os.getenv("OPENAI_API_KEY", ""))
+audio_processor = AudioProcessor(telegram_service, llm_service)
 
 user_db = NebulaUsers(os.getenv("COSMOSDB_CONNECTION_STRING", ""))
 
 message_handler = MessageHandler(
-    openai_service=openai_service,
+    llm_service=llm_service,
     telegram_service=telegram_service,
     audio_processor=audio_processor,
 )
