@@ -3,7 +3,7 @@ import io
 import logging
 from typing import Dict, List, Optional, Tuple
 
-from openai import OpenAI, OpenAIError, RateLimitError
+from openai import OpenAI, OpenAIError
 
 from src.services.openai_service import OpenAIService
 
@@ -29,11 +29,10 @@ class Transcriber:
             logging.info(f"Transcribing audio data of type: {type(audio_data)}")
 
             # TODO: user should be able to specify prompt if desired
-            # Define our synchronous transcription operation with bytes
             def _transcribe():
                 with io.BytesIO(audio_data) as audio_file:
                     audio_file.name = "audio.m4a"
-                    return self._client.audio.transcriptions.create(
+                    return self.client.audio.transcriptions.create(
                         model="whisper-1",
                         file=audio_file,
                         response_format="verbose_json",
