@@ -43,13 +43,14 @@ class TelegramService:
         Parameters:
             chat_id (int): Telegram chat ID to send message to
             text (str): The message text to send
-            parse_mode (str): How to parse the message text (HTML/Markdown)
+            parse_mode (str): How to parse the message text (HTML)
             reply_to_message_id (int, optional): Message ID to reply to
 
         Returns:
             Optional[int]: The message ID of the sent message, or None if sending failed
         """
         try:
+            text = self.format_telegram_html(text)
             data = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
             if reply_to_message_id:
                 data["reply_to_message_id"] = reply_to_message_id
@@ -77,6 +78,7 @@ class TelegramService:
             Optional[int]: The message ID, or None if editing failed
         """
         try:
+
             data = {
                 "chat_id": chat_id,
                 "message_id": message_id,
@@ -191,3 +193,22 @@ class TelegramService:
         """
         # You might want to implement more sophisticated error checking here
         return True
+
+    def format_telegram_html(self, text):
+        """
+        Format text for Telegram's HTML mode.
+        This function escapes special characters that need to be escaped in HTML.
+
+        Args:
+            text (str): The input text to be formatted
+
+        Returns:
+            str: The formatted text compliant with Telegram's HTML requirements
+        """
+        # Replace HTML special characters with their entities
+        text = text.replace("&", "&amp;")  # Must be first to avoid double-escaping
+        text = text.replace("<", "&lt;")
+        text = text.replace(">", "&gt;")
+        text = text.replace('"', "&quot;")
+
+        return text
