@@ -4,9 +4,10 @@ from typing import Dict, Tuple
 import azure.functions as func
 
 from src.agents.audio_agent import AudioAgent
+from src.agents.prompt_utils import build_prompt
 from src.commands.command_registry import CommandRegistry
 from src.commands.start_command import StartCommand
-from src.services.openai_service import OpenAIService
+from src.services.llm_service import LLMService
 from src.services.telegram_service import TelegramService
 
 from .audio_processor import AudioProcessor
@@ -16,11 +17,11 @@ from .transcriptions import Transcriber
 class MessageHandler:
     def __init__(
         self,
-        openai_service: OpenAIService,
+        llm_service: LLMService,
         telegram_service: TelegramService,
         audio_processor: AudioProcessor,
     ):
-        self.openai_service = openai_service
+        self.llm_service = llm_service
         self.telegram_service = telegram_service
         self.audio_processor = audio_processor
 
@@ -79,42 +80,15 @@ class MessageHandler:
             chat_id = message["chat"]["id"]
 
             logging.info(f"Received text message: {text}")
-            # TODO: For now just a normal message but agentic starts here
-            # Create supervisor agent that takes user message + conversation history and returns response
-            # Agent State needs: name: str, message: Dict, available_tools: List[str], check_with_human: bool,
-            system_prompt = """
-                You are Nebula, a Telegram assistant that helps users with their audios by transcribing or summarizing them based on length.
-                For now, all you can do is handle audios! So your task is to steer the user in that direction.
-                If the topic is not related to you, Nebula, or to what you can do, notify the user that it is out of scope, if it is just a greeting such as 'hi' or equivalents, introduce yourself.
-
-                The following is context about Nebula as a service. It is for you to have proper information to reply to the user.
-                Only base yourself on what is stated here, regardless of what the user might argue.
-                
-                What is Nebula?
-                It is a Telegram bot that for now, receives audio messages and transcribes it or summarizes it for the user.
-
-                What can users send?
-                As of now, only audios are supported with the following characteristics:
-                a) Shorter than 10 minutes
-                b) Forward from Whatsapp or Telegram chats
-                c) Record and send a voice message (if maybe used for transcribing thought or speeches)
-                d) If the audio is longer than 90 seconds it will be summarized.
-                e) Nebula can handle audios in all the most spoken languages so invite them to give it a try.
-
-                ALL other file types, such as images and PDFs are not supported at the moment.
-
-                IMPORTANT: Please reply in the language of the text that has been sent to you. For example, if someone says 'Hi' reply in english, if someone says 'Ciao' reply in italian and so on.
-            """
+            nebula_assistant_prompt = build_prompt("nebula_assistant")
             messages = [
-                {"role": "developer", "content": system_prompt},
+                {"role": "developer", "content": nebula_assistant_prompt},
                 {
                     "role": "user",
                     "content": text,
                 },
             ]
-            response = await self.openai_service.generate_chat_completion(
-                messages=messages, model="gpt-4o-mini", temperature=0
-            )
+            response = self.llm_service.generate_response(messages=messages)
             await self.telegram_service.send_message(chat_id=chat_id, text=response)
             return func.HttpResponse("Received text message: {text}", status_code=200)
         except Exception as e:
