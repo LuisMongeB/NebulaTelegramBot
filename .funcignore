@@ -10,3 +10,4 @@ Dockerfile
 docker-compose.yml
 docker.env
 test.env
+tests/*
