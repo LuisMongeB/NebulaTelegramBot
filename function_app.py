@@ -3,18 +3,16 @@ import os
 
 import azure.functions as func
 
-from additional_functions import bp
 from src.commands.command_registry import CommandRegistry
 from src.commands.start_command import StartCommand
 from src.db.users import NebulaUsers
 from src.message_processing.audio_processor import AudioProcessor
 from src.message_processing.message_handler import MessageHandler
-from src.message_processing.transcriptions import summarize_transcription
 from src.services.llm_service import LLMService
 from src.services.telegram_service import TelegramService
 
 telegram_service = TelegramService(os.getenv("TELEGRAM_BOT_TOKEN", ""))
-llm_service = LLMService(os.getenv("OPENAI_API_KEY", ""))
+llm_service = LLMService(provider="openai", api_key=os.getenv("OPENAI_API_KEY", ""))
 audio_processor = AudioProcessor(telegram_service, llm_service)
 
 user_db = NebulaUsers(os.getenv("COSMOSDB_CONNECTION_STRING", ""))
@@ -26,8 +24,6 @@ message_handler = MessageHandler(
 )
 
 app = func.FunctionApp()
-
-app.register_blueprint(bp)
 
 
 @app.function_name("TelegramBotFunction")
